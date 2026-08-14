@@ -1,0 +1,2198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Transit Intelligence is a clear rider-first live bus tracker with state, city, location, destination, route, and arrival alerts. Designed and developed by Emmanuel Kuh.">
+  <title>Transit Intelligence by Emmanuel Kuh</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg: #edf2f6;
+      --surface: #ffffff;
+      --surface-soft: #f7fafc;
+      --ink: #09111a;
+      --muted: #617084;
+      --line: #d7e0e9;
+      --green: #00b875;
+      --green-dark: #007f5a;
+      --red: #ee003c;
+      --red-dark: #bc0031;
+      --yellow: #fff1bb;
+      --blue: #1864d8;
+      --cyan: #00a6d6;
+      --gold: #d99c12;
+      --shadow: 0 18px 50px rgba(9, 17, 26, 0.16);
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-width: 0;
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .rider-app {
+      display: grid;
+      min-height: 100vh;
+      grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+      background: var(--surface);
+    }
+
+    .map-stage {
+      position: sticky;
+      top: 0;
+      min-width: 0;
+      height: 100vh;
+      overflow: hidden;
+      background: #dbe7df;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+      min-height: 520px;
+      background: #dce7df;
+    }
+
+    .leaflet-container {
+      font-family: inherit;
+    }
+
+    .leaflet-control-attribution {
+      font-size: 10px;
+    }
+
+    .map-glass {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      z-index: 700;
+      border: 1px solid rgba(255, 255, 255, 0.58);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.88);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .app-top {
+      top: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px;
+    }
+
+    .brand {
+      display: flex;
+      min-width: 0;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      flex: 0 0 38px;
+      place-items: center;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #09111a, #00b875);
+      color: white;
+      font-weight: 900;
+      letter-spacing: 0;
+      box-shadow: 0 12px 28px rgba(0, 184, 117, 0.26);
+    }
+
+    .brand h1 {
+      margin: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1.18rem;
+      letter-spacing: 0;
+    }
+
+    .brand-byline {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      white-space: nowrap;
+    }
+
+    .eyebrow {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.73rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .live-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      border: 1px solid rgba(0, 143, 77, 0.28);
+      border-radius: 999px;
+      background: #e1faed;
+      color: var(--green-dark);
+      padding: 0 11px;
+      font-size: 0.78rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .live-pill.preview {
+      border-color: rgba(188, 0, 49, 0.22);
+      background: #ffe3eb;
+      color: var(--red-dark);
+    }
+
+    .trip-tools {
+      bottom: 18px;
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+
+    .where-box {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 10px;
+      min-height: 56px;
+      border-radius: var(--radius);
+      background: linear-gradient(135deg, #09111a, #00b875);
+      color: white;
+      padding: 8px 12px;
+      box-shadow: 0 14px 30px rgba(0, 127, 90, 0.24);
+    }
+
+    .search-dot {
+      display: grid;
+      width: 29px;
+      height: 29px;
+      place-items: center;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      font-size: 0;
+    }
+
+    .search-dot::after {
+      content: "";
+      width: 9px;
+      height: 3px;
+      transform: translate(12px, 12px) rotate(45deg);
+      border-radius: 99px;
+      background: currentColor;
+    }
+
+    .where-input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      background: transparent;
+      color: white;
+      outline: 0;
+      font-size: 1.28rem;
+      font-weight: 800;
+    }
+
+    .where-input::placeholder {
+      color: rgba(255, 255, 255, 0.86);
+    }
+
+    .go-chip {
+      display: grid;
+      min-width: 58px;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 900;
+    }
+
+    .selector-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .destination-strip {
+      display: flex;
+      gap: 7px;
+      overflow-x: auto;
+      padding: 1px 0 2px;
+      scrollbar-width: thin;
+    }
+
+    .destination-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 34px;
+      border: 1px solid rgba(9, 17, 26, 0.1);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      padding: 0 11px;
+      font-size: 0.78rem;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: 0 8px 18px rgba(9, 17, 26, 0.08);
+    }
+
+    .destination-chip span {
+      color: var(--muted);
+      font-weight: 850;
+    }
+
+    .field {
+      display: grid;
+      gap: 5px;
+    }
+
+    .field span {
+      color: var(--muted);
+      font-size: 0.69rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .select,
+    .input {
+      width: 100%;
+      min-width: 0;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      padding: 0 9px;
+      outline: none;
+      font-weight: 750;
+    }
+
+    .select:focus,
+    .input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(5, 185, 102, 0.16);
+    }
+
+    .map-marker {
+      display: grid;
+      min-width: 42px;
+      height: 34px;
+      place-items: center;
+      border: 2px solid currentColor;
+      border-radius: 999px;
+      background: white;
+      color: var(--green-dark);
+      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.2);
+      font-size: 0.72rem;
+      font-weight: 950;
+      letter-spacing: 0;
+    }
+
+    .map-marker.destination {
+      color: var(--red);
+    }
+
+    .bus-pin {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-rows: auto auto;
+      column-gap: 7px;
+      row-gap: 1px;
+      min-width: 96px;
+      height: 52px;
+      align-items: center;
+      border: 3px solid var(--route-color, var(--green));
+      border-radius: var(--radius);
+      background: white;
+      color: var(--route-color, var(--green));
+      box-shadow: 0 11px 26px rgba(17, 24, 39, 0.24);
+      font-weight: 950;
+      padding: 6px 9px 7px;
+      line-height: 1;
+    }
+
+    .bus-pin::before {
+      content: "";
+      grid-row: 1 / 3;
+      width: 22px;
+      height: 18px;
+      border: 2px solid currentColor;
+      border-radius: 5px 5px 3px 3px;
+      background:
+        linear-gradient(currentColor 0 0) 4px 4px / 4px 4px no-repeat,
+        linear-gradient(currentColor 0 0) 12px 4px / 4px 4px no-repeat;
+      box-shadow:
+        4px 16px 0 -2px currentColor,
+        14px 16px 0 -2px currentColor;
+    }
+
+    .bus-pin::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      right: -5px;
+      top: -5px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 0 6px rgba(0, 184, 117, 0.18);
+    }
+
+    .bus-pin-route,
+    .bus-pin-bus,
+    .bus-pin-eta {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bus-pin-route {
+      font-size: 0.82rem;
+    }
+
+    .bus-pin-bus {
+      font-size: 0.62rem;
+      color: var(--ink);
+      opacity: 0.86;
+    }
+
+    .bus-pin-eta {
+      grid-column: 1 / -1;
+      justify-self: end;
+      margin-top: -2px;
+      font-size: 0.62rem;
+      color: var(--ink);
+      opacity: 0.72;
+    }
+
+    .bus-pin.estimated::after {
+      background: var(--gold);
+      box-shadow: 0 0 0 6px rgba(217, 156, 18, 0.18);
+    }
+
+    .bus-pin.urgent {
+      border-color: var(--red);
+      background: var(--red);
+      color: white;
+    }
+
+    .bus-pin.urgent .bus-pin-bus,
+    .bus-pin.urgent .bus-pin-eta {
+      color: white;
+      opacity: 0.92;
+    }
+
+    .sheet {
+      position: relative;
+      min-width: 0;
+      min-height: 100vh;
+      padding: 16px;
+      background: var(--surface);
+      overflow: auto;
+    }
+
+    .sheet-top {
+      display: grid;
+      gap: 12px;
+      padding-bottom: 12px;
+    }
+
+    .sheet-heading {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .sheet h2 {
+      margin: 2px 0 0;
+      font-size: clamp(1.8rem, 4vw, 3.15rem);
+      line-height: 0.95;
+      letter-spacing: 0;
+    }
+
+    .last-update {
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--ink);
+      padding: 0 12px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .utility-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .mini-live {
+      display: inline-flex;
+      min-height: 40px;
+      align-items: center;
+      border: 1px solid rgba(5, 185, 102, 0.26);
+      border-radius: var(--radius);
+      background: #e8fbf0;
+      color: var(--green-dark);
+      padding: 0 10px;
+      font-size: 0.78rem;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .button.primary {
+      border-color: var(--green);
+      background: var(--green);
+      color: white;
+    }
+
+    .urgent-strip {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-radius: var(--radius);
+      background: var(--red);
+      color: white;
+      padding: 13px;
+      box-shadow: 0 16px 30px rgba(238, 0, 60, 0.22);
+    }
+
+    .urgent-strip.show {
+      display: flex;
+    }
+
+    .urgent-strip strong {
+      display: block;
+      font-size: 1.02rem;
+    }
+
+    .urgent-strip span {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.86rem;
+      font-weight: 700;
+    }
+
+    .urgent-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .arrival-list {
+      display: grid;
+      gap: 8px;
+      overflow: hidden;
+      border-radius: var(--radius);
+    }
+
+    .arrival-card {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      border-radius: var(--radius);
+      background: var(--route-color, #87a092);
+      color: var(--route-text, white);
+      padding: 15px;
+      text-align: left;
+      box-shadow: 0 12px 28px rgba(9, 17, 26, 0.14);
+    }
+
+    .arrival-card.is-urgent {
+      background: var(--red);
+      color: white;
+    }
+
+    .arrival-card.is-selected {
+      outline: 4px solid rgba(17, 24, 39, 0.16);
+      outline-offset: -4px;
+    }
+
+    .arrival-grid {
+      display: grid;
+      grid-template-columns: minmax(82px, auto) minmax(0, 1fr);
+      gap: 13px;
+      align-items: start;
+    }
+
+    .route-big {
+      display: block;
+      font-size: 3.8rem;
+      line-height: 0.82;
+      font-weight: 950;
+      letter-spacing: 0;
+      white-space: nowrap;
+    }
+
+    .route-name {
+      margin-top: 8px;
+      font-size: 0.88rem;
+      font-weight: 900;
+    }
+
+    .eta-stack {
+      display: grid;
+      gap: 7px;
+    }
+
+    .eta-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(72px, auto);
+      gap: 10px;
+      align-items: center;
+      border-radius: 7px;
+      min-height: 42px;
+      padding: 6px 7px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .eta-row:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .eta-destination {
+      overflow-wrap: anywhere;
+      font-size: 1.05rem;
+      font-weight: 900;
+    }
+
+    .eta-destination::before {
+      content: ">";
+      display: inline-grid;
+      width: 18px;
+      height: 18px;
+      margin-right: 6px;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--route-color, var(--green));
+      font-size: 0.75rem;
+      vertical-align: 2px;
+    }
+
+    .arrival-card.is-urgent .eta-destination::before {
+      color: var(--red);
+    }
+
+    .eta-min {
+      display: flex;
+      align-items: flex-start;
+      justify-content: flex-end;
+      gap: 2px;
+      font-size: 2.1rem;
+      line-height: 0.9;
+      font-weight: 950;
+      white-space: nowrap;
+    }
+
+    .eta-min small {
+      margin-top: 4px;
+      font-size: 0.68rem;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .card-stop {
+      margin-top: 10px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      opacity: 0.9;
+    }
+
+    .card-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--ink);
+      padding: 0 8px;
+      font-size: 0.73rem;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .info-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      padding: 12px;
+    }
+
+    .info-card.full {
+      grid-column: 1 / -1;
+    }
+
+    .info-card h3 {
+      margin: 0 0 8px;
+      font-size: 0.95rem;
+      letter-spacing: 0;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+
+    .credit {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .place-grid,
+    .status-grid,
+    .route-manifest {
+      display: grid;
+      gap: 7px;
+    }
+
+    .place-button,
+    .status-pill,
+    .route-manifest-button {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface);
+      color: var(--ink);
+      padding: 9px;
+      text-align: left;
+      font-weight: 850;
+    }
+
+    .place-button.is-active,
+    .route-manifest-button.is-active {
+      border-color: var(--green);
+      background: #e7fbf0;
+    }
+
+    .place-button span,
+    .status-pill span,
+    .route-manifest-button span {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 850;
+      white-space: nowrap;
+    }
+
+    .route-manifest-button strong {
+      display: block;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .route-manifest-button > div {
+      min-width: 0;
+    }
+
+    .route-manifest-button small {
+      display: block;
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 0.72rem;
+      font-weight: 800;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .fleet-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 7px;
+      margin-bottom: 10px;
+    }
+
+    .summary-tile {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      padding: 9px;
+    }
+
+    .summary-tile span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.68rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .summary-tile strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+
+    .empty-state {
+      border: 1px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--surface-soft);
+      color: var(--muted);
+      padding: 18px;
+      text-align: center;
+      font-weight: 850;
+    }
+
+    @media (max-width: 1020px) {
+      .rider-app {
+        display: block;
+        background: var(--surface);
+      }
+
+      .map-stage {
+        position: relative;
+        height: 48vh;
+        min-height: 390px;
+      }
+
+      .sheet {
+        min-height: auto;
+        border-radius: 12px 12px 0 0;
+        margin-top: -15px;
+        box-shadow: 0 -12px 38px rgba(17, 24, 39, 0.12);
+      }
+
+      .arrival-card {
+        padding: 16px;
+      }
+
+      .route-big {
+        font-size: 3rem;
+      }
+
+      .eta-min {
+        font-size: 2.55rem;
+      }
+
+      .eta-destination {
+        font-size: 1.08rem;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .map-stage {
+        height: 45vh;
+        min-height: 360px;
+      }
+
+      .map-glass {
+        left: 10px;
+        right: 10px;
+      }
+
+      .app-top {
+        top: 10px;
+      }
+
+      .trip-tools {
+        bottom: 10px;
+        gap: 8px;
+        padding: 10px;
+      }
+
+      .app-top {
+        padding: 8px;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        flex-basis: 34px;
+        font-size: 0.82rem;
+      }
+
+      .brand h1 {
+        font-size: 0.95rem;
+      }
+
+      .brand-byline {
+        max-width: 145px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.58rem;
+      }
+
+      .eyebrow {
+        font-size: 0.62rem;
+      }
+
+      .live-pill {
+        min-height: 32px;
+        padding: 0 9px;
+        font-size: 0.72rem;
+      }
+
+      .where-box {
+        min-height: 50px;
+      }
+
+      .where-input {
+        font-size: 1.05rem;
+      }
+
+      .selector-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .action-row,
+      .info-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .utility-row .button,
+      .utility-row .mini-live {
+        flex: 1 1 145px;
+      }
+
+      .sheet {
+        padding: 12px;
+      }
+
+      .sheet h2 {
+        font-size: 1.75rem;
+        line-height: 1;
+      }
+
+      .arrival-grid {
+        grid-template-columns: minmax(70px, auto) minmax(0, 1fr);
+        gap: 11px;
+      }
+
+      .route-big {
+        font-size: 2.55rem;
+      }
+
+      .route-name {
+        font-size: 0.78rem;
+      }
+
+      .eta-row {
+        grid-template-columns: minmax(0, 1fr) minmax(70px, auto);
+        gap: 8px;
+      }
+
+      .eta-destination {
+        font-size: 0.98rem;
+        line-height: 1.15;
+      }
+
+      .eta-min {
+        font-size: 2.25rem;
+      }
+
+      .card-stop {
+        font-size: 0.82rem;
+      }
+    }
+
+    @media (max-width: 440px) {
+      .where-input {
+        font-size: 0.98rem;
+      }
+
+      .arrival-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .route-big {
+        font-size: 2.35rem;
+      }
+
+      .route-name {
+        margin-top: 5px;
+      }
+
+      .eta-row {
+        grid-template-columns: minmax(0, 1fr) minmax(70px, auto);
+        min-height: 48px;
+      }
+
+      .eta-min {
+        justify-content: flex-end;
+        font-size: 2rem;
+      }
+
+      .eta-min small {
+        font-size: 0.58rem;
+      }
+
+      .eta-destination {
+        font-size: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="rider-app">
+    <section class="map-stage" aria-label="Live transit map">
+      <div id="map"></div>
+
+      <div class="map-glass app-top">
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true">TI</div>
+          <div>
+            <h1 id="topTitle">Transit Intelligence</h1>
+            <p class="brand-byline">BY EMMANUEL KUH</p>
+          </div>
+        </div>
+        <span id="modeBadge" class="live-pill preview">Preview</span>
+      </div>
+
+      <div class="map-glass trip-tools">
+        <label class="where-box" for="whereInput">
+          <span class="search-dot" aria-hidden="true"></span>
+          <input id="whereInput" class="where-input" type="search" autocomplete="off" list="destinationList" value="Towson University" placeholder="Search UMMC, Towson, BWI, Bayview...">
+          <span id="goChip" class="go-chip">5 min</span>
+        </label>
+        <datalist id="destinationList"></datalist>
+        <div id="destinationStrip" class="destination-strip" aria-label="Quick destination search"></div>
+
+        <div class="selector-grid">
+          <label class="field" for="stateSelect">
+            <span>State</span>
+            <select id="stateSelect" class="select"></select>
+          </label>
+          <label class="field" for="citySelect">
+            <span>City</span>
+            <select id="citySelect" class="select"></select>
+          </label>
+          <label class="field" for="locationSelect">
+            <span>Location</span>
+            <select id="locationSelect" class="select"></select>
+          </label>
+          <label class="field" for="alertLead">
+            <span>Alert</span>
+            <select id="alertLead" class="select">
+              <option value="3">3 minutes</option>
+              <option value="5" selected>5 minutes</option>
+              <option value="8">8 minutes</option>
+              <option value="12">12 minutes</option>
+            </select>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="sheet" aria-label="Arrivals and trip controls">
+      <div class="sheet-top">
+        <div class="sheet-heading">
+          <div>
+            <p id="contextLine" class="eyebrow">Maryland / Towson</p>
+            <h2 id="tripTitle">Towson University</h2>
+          </div>
+          <span id="lastUpdate" class="last-update">Loading</span>
+        </div>
+
+        <div class="action-row">
+          <label class="field" for="routeSelect">
+            <span>Route</span>
+            <select id="routeSelect" class="select"></select>
+          </label>
+          <button id="refreshButton" class="button primary" type="button">Refresh</button>
+          <button id="soundButton" class="button" type="button" aria-pressed="false">Voice off</button>
+        </div>
+
+        <div class="utility-row" aria-label="Advanced map controls">
+          <button id="followButton" class="button" type="button" aria-pressed="false">Follow bus</button>
+          <button id="fitButton" class="button" type="button">Fit all</button>
+          <button id="locateButton" class="button" type="button">Locate me</button>
+          <span id="refreshCountdown" class="mini-live">Refresh 30s</span>
+        </div>
+
+        <div id="urgentStrip" class="urgent-strip" aria-live="polite"></div>
+      </div>
+
+      <div id="arrivalList" class="arrival-list" aria-live="polite"></div>
+
+      <div class="info-grid">
+        <section class="info-card">
+          <h3>Selected ride</h3>
+          <div id="selectedRide" class="muted">Choose an arrival card to track it.</div>
+        </section>
+
+        <section class="info-card">
+          <h3>Fleet states</h3>
+          <div id="statusGrid" class="status-grid"></div>
+        </section>
+
+        <section class="info-card full">
+          <h3>Route manifest</h3>
+          <div id="routeManifest" class="route-manifest"></div>
+        </section>
+
+        <section class="info-card full">
+          <h3>States, cities, and locations</h3>
+          <p id="providerNote" class="muted"></p>
+          <div id="placeGrid" class="place-grid"></div>
+        </section>
+      </div>
+      <p class="credit">Transit Intelligence - Designed and developed by Emmanuel Kuh</p>
+    </section>
+  </main>
+
+  <script>
+    window.TRANSIT_API_BASE = "https://emmanuel-transit-pulse.emmanuelkuh966.chatgpt.site";
+  </script>
+  <script>
+    const app = {
+      catalog: null,
+      locationId: "md-towson-lutherville",
+      routeId: "all",
+      vehicles: [],
+      selectedVehicleId: "",
+      alertLead: 5,
+      voiceEnabled: false,
+      audioContext: null,
+      alertedKeys: new Set(),
+      map: null,
+      layers: {},
+      busMarkers: new Map(),
+      motionTimer: null,
+      refreshTimer: null,
+      refreshMs: 30000,
+      nextRefreshAt: 0,
+      followSelected: false,
+      userMarker: null,
+      live: false,
+      mode: "",
+      source: "",
+      responseTimestamp: ""
+    };
+
+    const els = {
+      topTitle: document.getElementById("topTitle"),
+      modeBadge: document.getElementById("modeBadge"),
+      whereInput: document.getElementById("whereInput"),
+      destinationList: document.getElementById("destinationList"),
+      destinationStrip: document.getElementById("destinationStrip"),
+      goChip: document.getElementById("goChip"),
+      stateSelect: document.getElementById("stateSelect"),
+      citySelect: document.getElementById("citySelect"),
+      locationSelect: document.getElementById("locationSelect"),
+      alertLead: document.getElementById("alertLead"),
+      contextLine: document.getElementById("contextLine"),
+      tripTitle: document.getElementById("tripTitle"),
+      lastUpdate: document.getElementById("lastUpdate"),
+      routeSelect: document.getElementById("routeSelect"),
+      refreshButton: document.getElementById("refreshButton"),
+      soundButton: document.getElementById("soundButton"),
+      followButton: document.getElementById("followButton"),
+      fitButton: document.getElementById("fitButton"),
+      locateButton: document.getElementById("locateButton"),
+      refreshCountdown: document.getElementById("refreshCountdown"),
+      urgentStrip: document.getElementById("urgentStrip"),
+      arrivalList: document.getElementById("arrivalList"),
+      selectedRide: document.getElementById("selectedRide"),
+      statusGrid: document.getElementById("statusGrid"),
+      routeManifest: document.getElementById("routeManifest"),
+      providerNote: document.getElementById("providerNote"),
+      placeGrid: document.getElementById("placeGrid")
+    };
+
+    const API_BASE = String(window.TRANSIT_API_BASE || "").replace(/\/+$/, "");
+
+    function apiUrl(path) {
+      const cleanPath = path.startsWith("/") ? path : `/${path}`;
+      return `${API_BASE}${cleanPath}`;
+    }
+
+    function escapeHtml(value) {
+      return String(value == null ? "" : value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function allLocations() {
+      return app.catalog ? app.catalog.locations : [];
+    }
+
+    function currentLocation() {
+      return allLocations().find((location) => location.id === app.locationId) || allLocations()[0];
+    }
+
+    function currentRoute() {
+      const location = currentLocation();
+      if (!location || app.routeId === "all") return null;
+      return location.routes.find((route) => route.id === app.routeId) || null;
+    }
+
+    function normalizeQuery(value) {
+      return String(value || "")
+        .toLowerCase()
+        .replaceAll("centre", "center")
+        .replaceAll("&", " and ")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    }
+
+    function routeByLocation(location, routeId) {
+      return location && location.routes ? location.routes.find((route) => route.id === routeId) : null;
+    }
+
+    function routeSearchText(location, route) {
+      return [
+        route.id,
+        route.label,
+        route.shortName,
+        route.name,
+        route.from,
+        route.headsign,
+        ...(route.destinations || []),
+        ...(route.aliases || []),
+        ...(route.sampleBusNumbers || []),
+        location.cityName,
+        location.locationName
+      ].join(" ");
+    }
+
+    function searchIndex() {
+      const seen = new Set();
+      const items = [];
+
+      allLocations().forEach((location) => {
+        const locationText = [
+          location.id,
+          location.stateName,
+          location.stateCode,
+          location.cityName,
+          location.locationName,
+          location.home && location.home.name,
+          location.destination && location.destination.name,
+          ...(location.aliases || [])
+        ].join(" ");
+
+        items.push({
+          type: "location",
+          label: location.locationName,
+          meta: `${location.cityName} / ${location.stateCode}`,
+          locationId: location.id,
+          routeId: "all",
+          text: normalizeQuery(locationText)
+        });
+
+        (location.routes || []).forEach((route) => {
+          items.push({
+            type: "route",
+            label: `${route.label} - ${route.name.replace(/^.*? - /, "")}`,
+            meta: `${location.cityName} / ${route.destinations.slice(0, 2).join(" / ")}`,
+            locationId: location.id,
+            routeId: route.id,
+            text: normalizeQuery(routeSearchText(location, route))
+          });
+
+          (route.destinations || []).concat(route.aliases || []).forEach((destination) => {
+            const key = `${normalizeQuery(destination)}:${location.id}:${route.id}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            items.push({
+              type: "destination",
+              label: destination,
+              meta: `${route.label} / ${location.cityName}`,
+              locationId: location.id,
+              routeId: route.id,
+              text: normalizeQuery(`${destination} ${routeSearchText(location, route)} ${locationText}`)
+            });
+          });
+        });
+      });
+
+      return items;
+    }
+
+    function rankedSearchItems(query, limit = 10) {
+      const normalized = normalizeQuery(query);
+      const priority = normalizeQuery("UMMC University of Maryland Medical Center Towson BWI Johns Hopkins Bayview Harbor East West Baltimore MARC Patapsco Mondawmin Catonsville Downtown Baltimore Penn Station");
+      const source = normalized || priority;
+      return searchIndex()
+        .map((item) => {
+          const label = normalizeQuery(item.label);
+          let score = 0;
+          if (normalized && label === normalized) score += 100;
+          if (normalized && label.includes(normalized)) score += 70;
+          if (normalized && item.text.includes(normalized)) score += 45;
+          source.split(" ").forEach((part) => {
+            if (part && item.text.includes(part)) score += normalized ? 2 : 1;
+          });
+          if (item.locationId === app.locationId) score += 4;
+          if (item.type === "destination") score += 3;
+          return { ...item, score };
+        })
+        .filter((item) => item.score > 0)
+        .sort((a, b) => b.score - a.score || a.label.localeCompare(b.label))
+        .slice(0, limit);
+    }
+
+    function syncSelectorsToLocation(location) {
+      els.stateSelect.value = location.stateCode;
+      renderCityOptions(location.stateCode, location.cityName);
+      renderLocationOptions(location.stateCode, location.cityName, location.id);
+      renderRouteOptions();
+    }
+
+    function openSearchItem(item) {
+      if (!item) return false;
+      app.locationId = item.locationId;
+      const location = currentLocation();
+      app.routeId = location.liveMode === "nyc-siri" && item.routeId === "all" ? location.routes[0].id : item.routeId;
+      app.selectedVehicleId = "";
+      syncSelectorsToLocation(location);
+      loadVehicles();
+      return true;
+    }
+
+    function applySearchNavigation() {
+      const query = els.whereInput.value.trim();
+      if (!query) return false;
+      const match = rankedSearchItems(query, 1)[0];
+      return openSearchItem(match);
+    }
+
+    function parseDate(value) {
+      const date = new Date(value);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    function vehicleTime(vehicle) {
+      const stop = vehicle.nextStop || {};
+      return stop.expectedDepartureTime || stop.expectedArrivalTime || vehicle.recordedAtTime || "";
+    }
+
+    function minutesUntil(value) {
+      const date = parseDate(value);
+      if (!date) return null;
+      return Math.max(0, Math.ceil((date.getTime() - Date.now()) / 60000));
+    }
+
+    function etaText(minutes) {
+      if (minutes == null) return "-";
+      if (minutes <= 0) return "Now";
+      return String(minutes);
+    }
+
+    function clockText(value) {
+      const date = parseDate(value);
+      if (!date) return "--";
+      return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    }
+
+    function stopsText(value) {
+      const stops = Number(value);
+      if (!Number.isFinite(stops)) return "Stops not posted";
+      if (stops <= 0) return "At stop";
+      if (stops === 1) return "1 stop away";
+      return `${stops} stops away`;
+    }
+
+    function distanceText(value) {
+      const meters = Number(value);
+      if (!Number.isFinite(meters)) return "Distance not posted";
+      if (meters < 1000) return `${Math.round(meters)} m away`;
+      return `${(meters / 1000).toFixed(1)} km away`;
+    }
+
+    function classify(vehicle) {
+      const mins = minutesUntil(vehicleTime(vehicle));
+      const progress = `${vehicle.progressRate || ""} ${(vehicle.progressStatus || []).join(" ")}`.toLowerCase();
+      if ((vehicle.situationRefs || []).length) return "Notice";
+      if (progress.includes("layover") || progress.includes("no progress") || progress.includes("noprogress")) return "Holding";
+      if (mins != null && mins <= app.alertLead) return "Incoming";
+      if (!vehicle.isRealtime && !app.live) return "Preview";
+      return "Tracking";
+    }
+
+    function filteredVehicles() {
+      const query = normalizeQuery(els.whereInput.value.trim());
+      const location = currentLocation();
+      const routeMap = new Map((location.routes || []).map((route) => [route.id, route]));
+      const scoped = app.vehicles
+        .filter((vehicle) => app.routeId === "all" || vehicle.routeId === app.routeId)
+        .sort((a, b) => (minutesUntil(vehicleTime(a)) ?? 999) - (minutesUntil(vehicleTime(b)) ?? 999));
+
+      if (!query) return scoped;
+
+      const matched = scoped.filter((vehicle) => {
+          const route = routeMap.get(vehicle.routeId) || {};
+          const text = [
+            vehicle.destination,
+            vehicle.from,
+            vehicle.routeLabel,
+            vehicle.routeName,
+            vehicle.busName,
+            vehicle.busNumber,
+            vehicle.nextStop && vehicle.nextStop.stopName,
+            vehicle.cityName,
+            vehicle.stateCode,
+            route.headsign,
+            ...(route.destinations || []),
+            ...(route.aliases || []),
+            location.locationName,
+            ...(location.aliases || [])
+          ].join(" ");
+          return normalizeQuery(text).includes(query);
+        });
+
+      if (matched.length) return matched;
+
+      const currentCatalogMatch = rankedSearchItems(query, 1)[0];
+      if (currentCatalogMatch && currentCatalogMatch.locationId === app.locationId) return scoped;
+      return matched;
+    }
+
+    function groupVehicles(vehicles) {
+      const groups = new Map();
+      vehicles.forEach((vehicle) => {
+        if (!groups.has(vehicle.routeId)) {
+          groups.set(vehicle.routeId, {
+            routeId: vehicle.routeId,
+            routeLabel: vehicle.routeLabel,
+            routeName: vehicle.routeName,
+            routeColor: vehicle.routeColor,
+            textColor: vehicle.textColor,
+            vehicles: []
+          });
+        }
+        groups.get(vehicle.routeId).vehicles.push(vehicle);
+      });
+      return Array.from(groups.values()).sort((a, b) => {
+        const aMin = Math.min(...a.vehicles.map((vehicle) => minutesUntil(vehicleTime(vehicle)) ?? 999));
+        const bMin = Math.min(...b.vehicles.map((vehicle) => minutesUntil(vehicleTime(vehicle)) ?? 999));
+        return aMin - bMin;
+      });
+    }
+
+    function initMap() {
+      if (typeof L === "undefined") {
+        document.getElementById("map").innerHTML = '<div class="empty-state">Map could not load.</div>';
+        return;
+      }
+
+      const location = currentLocation();
+      app.map = L.map("map", { zoomControl: false, attributionControl: true, preferCanvas: true }).setView(location.center, location.zoom);
+      L.control.zoom({ position: "bottomright" }).addTo(app.map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 20,
+        attribution: "&copy; OpenStreetMap contributors"
+      }).addTo(app.map);
+      app.layers.route = L.layerGroup().addTo(app.map);
+      app.layers.trails = L.layerGroup().addTo(app.map);
+      app.layers.points = L.layerGroup().addTo(app.map);
+      app.layers.buses = L.layerGroup().addTo(app.map);
+    }
+
+    function markerIcon(label, className, color) {
+      return L.divIcon({
+        html: `<div class="${className}" style="--route-color:${escapeHtml(color || "")}">${escapeHtml(label)}</div>`,
+        className: "pulse-div-icon",
+        iconSize: [58, 42],
+        iconAnchor: [29, 38],
+        popupAnchor: [0, -34]
+      });
+    }
+
+    function busMarkerIcon(vehicle, urgent, estimated, mins) {
+      const label = String(vehicle.routeLabel || "Bus").slice(0, 12);
+      const busNumber = String(vehicle.busNumber || "live").slice(0, 12);
+      const eta = `${etaText(mins)}${mins == null || mins === 0 ? "" : " min"}`;
+      return L.divIcon({
+        html: `
+          <div class="bus-pin ${urgent ? "urgent" : ""} ${estimated ? "estimated" : ""}" style="--route-color:${escapeHtml(vehicle.routeColor || "")}">
+            <span class="bus-pin-route">${escapeHtml(label)}</span>
+            <span class="bus-pin-bus">Bus ${escapeHtml(busNumber)}</span>
+            <span class="bus-pin-eta">${escapeHtml(eta)}</span>
+          </div>
+        `,
+        className: "pulse-div-icon",
+        iconSize: [102, 56],
+        iconAnchor: [51, 50],
+        popupAnchor: [0, -46]
+      });
+    }
+
+    function interpolateRoute(points, progress) {
+      if (!points || points.length < 2) return null;
+      const clamped = Math.max(0, Math.min(0.99, progress));
+      const scaled = clamped * (points.length - 1);
+      const index = Math.min(points.length - 2, Math.floor(scaled));
+      const local = scaled - index;
+      const start = points[index];
+      const end = points[index + 1];
+      return [
+        start[0] + (end[0] - start[0]) * local,
+        start[1] + (end[1] - start[1]) * local
+      ];
+    }
+
+    function offsetByBearing(latitude, longitude, bearing, meters) {
+      const earthRadius = 6378137;
+      const angularDistance = meters / earthRadius;
+      const bearingRad = bearing * Math.PI / 180;
+      const lat1 = latitude * Math.PI / 180;
+      const lon1 = longitude * Math.PI / 180;
+      const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(angularDistance)
+        + Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearingRad)
+      );
+      const lon2 = lon1 + Math.atan2(
+        Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(lat1),
+        Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2)
+      );
+      return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+    }
+
+    function liveVehiclePosition(vehicle) {
+      if (Array.isArray(vehicle.routeLine) && vehicle.routeLine.length > 1 && Number.isFinite(Number(vehicle.motionProgress))) {
+        const started = Number(vehicle.motionStartedAt) || Date.now();
+        const elapsed = Math.max(0, (Date.now() - started) / 1000);
+        const speed = Number(vehicle.motionSpeed) || 0.00045;
+        let progress = Number(vehicle.motionProgress) + elapsed * speed;
+        progress = 0.02 + (progress % 0.94);
+        return interpolateRoute(vehicle.routeLine, progress);
+      }
+      if (Number.isFinite(vehicle.latitude) && Number.isFinite(vehicle.longitude)) {
+        const speed = Number(vehicle.speedMetersPerSecond);
+        const bearing = Number(vehicle.bearing);
+        const recordedAt = Date.parse(vehicle.recordedAtTime || app.responseTimestamp || "");
+        if (Number.isFinite(speed) && speed > 0.2 && Number.isFinite(bearing) && Number.isFinite(recordedAt)) {
+          const elapsed = Math.max(0, Math.min(40, (Date.now() - recordedAt) / 1000));
+          return offsetByBearing(Number(vehicle.latitude), Number(vehicle.longitude), bearing, speed * elapsed);
+        }
+        return [vehicle.latitude, vehicle.longitude];
+      }
+      return null;
+    }
+
+    function selectedVehicle() {
+      return app.vehicles.find((vehicle) => vehicle.id === app.selectedVehicleId) || null;
+    }
+
+    function fitTrackedVehicles() {
+      if (!app.map) return;
+      const location = currentLocation();
+      const vehiclePoints = filteredVehicles().map(liveVehiclePosition).filter(Boolean);
+      const anchorPoints = [];
+      if (location && location.home) anchorPoints.push([location.home.lat, location.home.lng]);
+      if (location && location.destination) anchorPoints.push([location.destination.lat, location.destination.lng]);
+      const points = vehiclePoints.concat(anchorPoints);
+      if (!points.length && location) {
+        app.map.setView(location.center, location.zoom, { animate: true });
+        return;
+      }
+      if (points.length) {
+        app.map.fitBounds(L.latLngBounds(points).pad(0.25), { maxZoom: 15, animate: true });
+      }
+    }
+
+    function panToSelected() {
+      if (!app.map) return;
+      const vehicle = selectedVehicle();
+      if (!vehicle) return;
+      const position = liveVehiclePosition(vehicle);
+      if (position) app.map.panTo(position, { animate: true, duration: 0.45 });
+    }
+
+    function focusSelectedVehicle(options = {}) {
+      if (!app.map) return;
+      const vehicle = selectedVehicle();
+      if (!vehicle) return;
+      const position = liveVehiclePosition(vehicle);
+      if (!position) return;
+      const zoom = Math.max(app.map.getZoom(), options.zoom ? 16 : 15);
+      app.map.setView(position, zoom, { animate: true });
+      const stored = app.busMarkers.get(vehicle.id);
+      if (stored && stored.marker && options.openPopup !== false) stored.marker.openPopup();
+      if (options.scroll && window.matchMedia("(max-width: 1020px)").matches) {
+        document.querySelector(".map-stage").scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+
+    function selectVehicle(vehicleId, options = {}) {
+      if (!vehicleId) return;
+      app.selectedVehicleId = vehicleId;
+      app.followSelected = Boolean(options.follow);
+      els.followButton.textContent = app.followSelected ? "Following" : "Follow bus";
+      els.followButton.setAttribute("aria-pressed", String(app.followSelected));
+      renderAll(true);
+      window.setTimeout(() => focusSelectedVehicle(options), 120);
+    }
+
+    function updateRefreshCountdown() {
+      if (!els.refreshCountdown) return;
+      if (!app.nextRefreshAt) {
+        els.refreshCountdown.textContent = "Refresh ready";
+        return;
+      }
+      const seconds = Math.max(0, Math.ceil((app.nextRefreshAt - Date.now()) / 1000));
+      els.refreshCountdown.textContent = seconds ? `Refresh ${seconds}s` : "Refreshing";
+    }
+
+    function animateBusMarkers() {
+      if (!app.map || !app.busMarkers.size) return;
+      app.busMarkers.forEach(({ marker, vehicle }) => {
+        const position = liveVehiclePosition(vehicle);
+        if (position) marker.setLatLng(position);
+      });
+      if (app.followSelected) panToSelected();
+    }
+
+    function renderMap() {
+      if (!app.map) return;
+      const location = currentLocation();
+      const vehicles = filteredVehicles();
+      app.layers.route.clearLayers();
+      app.layers.trails.clearLayers();
+      app.layers.points.clearLayers();
+      app.layers.buses.clearLayers();
+      app.busMarkers.clear();
+
+      app.map.setView(location.center, location.zoom, { animate: true });
+
+      if (location.routeLine && location.routeLine.length > 1) {
+        L.polyline(location.routeLine, {
+          color: "#09111a",
+          weight: 11,
+          opacity: 0.14,
+          lineCap: "round"
+        }).addTo(app.layers.route);
+        L.polyline(location.routeLine, {
+          color: "#00b875",
+          weight: 6,
+          opacity: 0.78,
+          lineCap: "round"
+        }).addTo(app.layers.route);
+      }
+
+      if (location.home) {
+        L.circle([location.home.lat, location.home.lng], {
+          radius: 210,
+          color: "#00b875",
+          weight: 1,
+          opacity: 0.45,
+          fillColor: "#00b875",
+          fillOpacity: 0.08
+        }).addTo(app.layers.points);
+        L.marker([location.home.lat, location.home.lng], {
+          icon: markerIcon("Home", "map-marker", "#008f4d")
+        }).bindPopup(`<strong>${escapeHtml(location.home.name)}</strong>`).addTo(app.layers.points);
+      }
+
+      if (location.destination) {
+        L.circle([location.destination.lat, location.destination.lng], {
+          radius: 240,
+          color: "#ee003c",
+          weight: 1,
+          opacity: 0.45,
+          fillColor: "#ee003c",
+          fillOpacity: 0.07
+        }).addTo(app.layers.points);
+        L.marker([location.destination.lat, location.destination.lng], {
+          icon: markerIcon("To", "map-marker destination", "#ee003c")
+        }).bindPopup(`<strong>${escapeHtml(location.destination.name)}</strong>`).addTo(app.layers.points);
+      }
+
+      vehicles.forEach((vehicle) => {
+        const position = liveVehiclePosition(vehicle);
+        if (!position) return;
+        const mins = minutesUntil(vehicleTime(vehicle));
+        const urgent = mins != null && mins <= app.alertLead;
+        const estimated = !String(vehicle.positionQuality || "").toLowerCase().includes("exact");
+        const icon = busMarkerIcon(vehicle, urgent, estimated, mins);
+        if (estimated) {
+          L.circle(position, {
+            radius: vehicle.isRealtime ? 180 : 320,
+            color: vehicle.routeColor,
+            weight: 1,
+            opacity: 0.32,
+            fillColor: vehicle.routeColor,
+            fillOpacity: 0.06
+          }).addTo(app.layers.trails);
+        }
+        const marker = L.marker(position, { icon })
+          .bindPopup(`
+            <strong>${escapeHtml(vehicle.routeLabel)} Bus ${escapeHtml(vehicle.busNumber)}</strong><br>
+            ${escapeHtml(vehicle.destination || "Destination not posted")}<br>
+            ${escapeHtml(etaText(mins))} min at ${escapeHtml(vehicle.nextStop && vehicle.nextStop.stopName || "next stop")}<br>
+            ${escapeHtml(vehicle.positionQuality || "live vehicle position")}
+          `)
+          .on("click", () => {
+            selectVehicle(vehicle.id, { zoom: true, openPopup: true, follow: true });
+          })
+          .addTo(app.layers.buses);
+        app.busMarkers.set(vehicle.id, { marker, vehicle });
+
+        if (vehicle.destinationPoint) {
+          L.polyline([position, [vehicle.destinationPoint.lat, vehicle.destinationPoint.lng]], {
+            color: urgent ? "#ee003c" : vehicle.routeColor,
+            weight: urgent ? 4 : 3,
+            opacity: urgent ? 0.75 : 0.45,
+            dashArray: urgent ? "" : "8 10"
+          }).addTo(app.layers.route);
+        }
+
+        if (Array.isArray(vehicle.routeLine) && Number.isFinite(Number(vehicle.motionProgress))) {
+          const trail = [];
+          const base = Number(vehicle.motionProgress);
+          for (let step = 5; step >= 0; step -= 1) {
+            const point = interpolateRoute(vehicle.routeLine, base - step * 0.018);
+            if (point) trail.push(point);
+          }
+          if (trail.length > 1) {
+            L.polyline(trail, {
+              color: urgent ? "#ee003c" : vehicle.routeColor,
+              weight: urgent ? 8 : 6,
+              opacity: urgent ? 0.46 : 0.34,
+              lineCap: "round"
+            }).addTo(app.layers.trails);
+          }
+        }
+      });
+
+      const points = vehicles
+        .map(liveVehiclePosition)
+        .filter(Boolean);
+      if (points.length && !app.followSelected) fitTrackedVehicles();
+      if (app.followSelected) panToSelected();
+    }
+
+    function setupSelectors() {
+      const states = app.catalog.states;
+      els.stateSelect.innerHTML = states.map((state) => `<option value="${escapeHtml(state.code)}">${escapeHtml(state.name)}</option>`).join("");
+
+      const location = currentLocation();
+      els.stateSelect.value = location.stateCode;
+      renderCityOptions(location.stateCode, location.cityName);
+      renderLocationOptions(location.stateCode, location.cityName, location.id);
+      renderRouteOptions();
+    }
+
+    function stateByCode(code) {
+      return app.catalog.states.find((state) => state.code === code) || app.catalog.states[0];
+    }
+
+    function renderCityOptions(stateCode, selectedCity) {
+      const state = stateByCode(stateCode);
+      els.citySelect.innerHTML = state.cities.map((city) => `<option value="${escapeHtml(city.name)}">${escapeHtml(city.name)}</option>`).join("");
+      els.citySelect.value = selectedCity && state.cities.some((city) => city.name === selectedCity) ? selectedCity : state.cities[0].name;
+    }
+
+    function renderLocationOptions(stateCode, cityName, selectedLocationId) {
+      const state = stateByCode(stateCode);
+      const city = state.cities.find((item) => item.name === cityName) || state.cities[0];
+      els.locationSelect.innerHTML = city.locations.map((location) => `<option value="${escapeHtml(location.id)}">${escapeHtml(location.name)}</option>`).join("");
+      els.locationSelect.value = selectedLocationId && city.locations.some((location) => location.id === selectedLocationId) ? selectedLocationId : city.locations[0].id;
+      app.locationId = els.locationSelect.value;
+    }
+
+    function renderRouteOptions() {
+      const location = currentLocation();
+      const allOption = location.liveMode === "nyc-siri" ? "" : '<option value="all">All nearby routes</option>';
+      els.routeSelect.innerHTML = allOption + location.routes.map((route) => `<option value="${escapeHtml(route.id)}">${escapeHtml(route.label)} - ${escapeHtml(route.name)}</option>`).join("");
+      if (location.liveMode === "nyc-siri" && app.routeId === "all") app.routeId = location.routes[0].id;
+      if (!location.routes.some((route) => route.id === app.routeId) && app.routeId !== "all") app.routeId = allOption ? "all" : location.routes[0].id;
+      els.routeSelect.value = app.routeId;
+    }
+
+    async function loadCatalog() {
+      const response = await fetch(apiUrl("/api/catalog"), { cache: "no-store" });
+      app.catalog = await response.json();
+    }
+
+    async function loadVehicles() {
+      app.nextRefreshAt = Date.now() + app.refreshMs;
+      updateRefreshCountdown();
+      const response = await fetch(apiUrl(`/api/vehicles?location=${encodeURIComponent(app.locationId)}&route=${encodeURIComponent(app.routeId)}`), { cache: "no-store" });
+      const data = await response.json();
+      app.live = Boolean(data.live);
+      app.mode = data.mode || "";
+      app.source = data.source || "";
+      app.responseTimestamp = data.responseTimestamp || new Date().toISOString();
+      app.vehicles = Array.isArray(data.vehicles) ? data.vehicles : [];
+      if (!app.selectedVehicleId || !app.vehicles.some((vehicle) => vehicle.id === app.selectedVehicleId)) {
+        app.selectedVehicleId = app.vehicles[0] ? app.vehicles[0].id : "";
+      }
+      app.nextRefreshAt = Date.now() + app.refreshMs;
+      renderAll(true);
+      updateRefreshCountdown();
+    }
+
+    function renderArrivalCards(vehicles) {
+      if (!vehicles.length) {
+        els.arrivalList.innerHTML = '<div class="empty-state">No routes match this destination search.</div>';
+        return;
+      }
+
+      els.arrivalList.innerHTML = groupVehicles(vehicles).map((group) => {
+        const sorted = group.vehicles.sort((a, b) => (minutesUntil(vehicleTime(a)) ?? 999) - (minutesUntil(vehicleTime(b)) ?? 999));
+        const minEta = minutesUntil(vehicleTime(sorted[0]));
+        const urgent = minEta != null && minEta <= app.alertLead;
+        const selected = sorted.some((vehicle) => vehicle.id === app.selectedVehicleId);
+
+        return `
+          <button class="arrival-card ${urgent ? "is-urgent" : ""} ${selected ? "is-selected" : ""}" type="button" data-vehicle-id="${escapeHtml(sorted[0].id)}" style="--route-color:${escapeHtml(group.routeColor)};--route-text:${escapeHtml(group.textColor || "#ffffff")}">
+            <div class="arrival-grid">
+              <div>
+                <span class="route-big">${escapeHtml(group.routeLabel)}</span>
+                <div class="route-name">${escapeHtml(group.routeName.replace(/^.*? - /, ""))}</div>
+              </div>
+              <div class="eta-stack">
+                ${sorted.slice(0, 3).map((vehicle) => {
+                  const mins = minutesUntil(vehicleTime(vehicle));
+                  return `
+                    <div class="eta-row" data-vehicle-id="${escapeHtml(vehicle.id)}">
+                      <div class="eta-destination">${escapeHtml(vehicle.destination || "Destination not posted")}</div>
+                      <div class="eta-min">${escapeHtml(etaText(mins))}<small>${mins == null || mins === 0 ? "" : "min"}</small></div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+            <div class="card-stop">${escapeHtml(sorted[0].from || "Current stop")} / ${escapeHtml(sorted[0].nextStop && sorted[0].nextStop.stopName || "next stop")}</div>
+            <div class="card-tags">
+              <span class="tag">${escapeHtml(classify(sorted[0]))}</span>
+              <span class="tag">Bus ${escapeHtml(sorted[0].busNumber)}</span>
+              <span class="tag">${escapeHtml(stopsText(sorted[0].nextStop && sorted[0].nextStop.numberOfStopsAway))}</span>
+            </div>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderUrgent(vehicles) {
+      const urgent = vehicles.find((vehicle) => {
+        const mins = minutesUntil(vehicleTime(vehicle));
+        return mins != null && mins <= app.alertLead;
+      });
+
+      if (!urgent) {
+        els.urgentStrip.classList.remove("show");
+        els.urgentStrip.innerHTML = "";
+        els.goChip.textContent = `${app.alertLead} min`;
+        return;
+      }
+
+      const mins = minutesUntil(vehicleTime(urgent));
+      els.goChip.textContent = `${etaText(mins)} min`;
+      els.urgentStrip.classList.add("show");
+      els.urgentStrip.innerHTML = `
+        <div>
+          <strong>${escapeHtml(urgent.routeLabel)} in ${escapeHtml(etaText(mins))} min to ${escapeHtml(urgent.destination)}</strong>
+          <span>From ${escapeHtml(urgent.from)} near ${escapeHtml(urgent.nextStop && urgent.nextStop.stopName || "next stop")}</span>
+        </div>
+        <div class="urgent-actions">
+          <button class="button" type="button" data-speak-urgent="${escapeHtml(urgent.id)}">Speak</button>
+          <button class="button" type="button" data-track-urgent="${escapeHtml(urgent.id)}">Track</button>
+        </div>
+      `;
+      playAlertOnce(urgent);
+    }
+
+    function renderSelected() {
+      const vehicle = app.vehicles.find((item) => item.id === app.selectedVehicleId);
+      if (!vehicle) {
+        els.selectedRide.textContent = "Choose an arrival card to track it.";
+        return;
+      }
+      const mins = minutesUntil(vehicleTime(vehicle));
+      els.selectedRide.innerHTML = `
+        <strong>${escapeHtml(vehicle.routeLabel)} Bus ${escapeHtml(vehicle.busNumber)} to ${escapeHtml(vehicle.destination)}</strong><br>
+        Leaves ${escapeHtml(vehicle.from)} at ${escapeHtml(clockText(vehicleTime(vehicle)))} (${escapeHtml(etaText(mins))}${mins === 0 || mins == null ? "" : " min"}).<br>
+        ${escapeHtml(vehicle.nextStop && vehicle.nextStop.stopName || "Next stop")} - ${escapeHtml(stopsText(vehicle.nextStop && vehicle.nextStop.numberOfStopsAway))}, ${escapeHtml(distanceText(vehicle.nextStop && vehicle.nextStop.distanceFromStopMeters))}.<br>
+        Tracking: ${escapeHtml(vehicle.positionQuality || (vehicle.isRealtime ? "live GPS vehicle position" : "provider-ready preview"))}.<br>
+        Voice alerts are ${app.voiceEnabled ? "on" : "off"}.
+      `;
+    }
+
+    function renderStatus(vehicles) {
+      const rows = ["Incoming", "Tracking", "Preview", "Holding", "Notice"];
+      const liveCount = vehicles.filter((vehicle) => vehicle.isRealtime).length;
+      const closest = vehicles.length ? Math.min(...vehicles.map((vehicle) => minutesUntil(vehicleTime(vehicle)) ?? 999)) : null;
+      const summary = `
+        <div class="fleet-summary">
+          <div class="summary-tile"><span>Tracked</span><strong>${vehicles.length}</strong></div>
+          <div class="summary-tile"><span>Live</span><strong>${liveCount}</strong></div>
+          <div class="summary-tile"><span>Closest</span><strong>${closest == null || closest === 999 ? "-" : etaText(closest)}</strong></div>
+        </div>
+      `;
+      const pills = rows.map((label) => {
+        const count = vehicles.filter((vehicle) => classify(vehicle) === label).length;
+        return `<div class="status-pill">${escapeHtml(label)}<span>${count}</span></div>`;
+      }).join("");
+      els.statusGrid.innerHTML = summary + pills;
+    }
+
+    function renderRouteManifest(vehicles) {
+      const location = currentLocation();
+      if (!location || !location.routes || !location.routes.length) {
+        els.routeManifest.innerHTML = '<div class="empty-state">No route manifest available.</div>';
+        return;
+      }
+      els.routeManifest.innerHTML = location.routes.map((route) => {
+        const routeVehicles = vehicles.filter((vehicle) => vehicle.routeId === route.id);
+        const bestEta = routeVehicles.length
+          ? Math.min(...routeVehicles.map((vehicle) => minutesUntil(vehicleTime(vehicle)) ?? 999))
+          : null;
+        const active = app.routeId === route.id || (app.routeId === "all" && routeVehicles.length);
+        const etaLabel = routeVehicles.length ? `${bestEta === 999 ? "-" : etaText(bestEta)} min` : "No live arrivals";
+        const busNumbers = routeVehicles.length
+          ? routeVehicles.slice(0, 4).map((vehicle) => vehicle.busNumber).join(", ")
+          : (route.sampleBusNumbers || []).slice(0, 4).join(", ");
+        const manifestMeta = `${(route.destinations || []).slice(0, 4).join(" / ")}${busNumbers ? ` - buses ${busNumbers}` : ""}`;
+        return `
+          <button class="route-manifest-button ${active ? "is-active" : ""}" type="button" data-route-id="${escapeHtml(route.id)}">
+            <div>
+              <strong>${escapeHtml(route.label)} ${escapeHtml(route.name.replace(/^.*? - /, ""))}</strong>
+              <small>${escapeHtml(manifestMeta)}</small>
+            </div>
+            <span>${escapeHtml(etaLabel)}</span>
+          </button>
+        `;
+      }).join("");
+    }
+
+    function renderPlaces() {
+      const places = allLocations();
+      els.providerNote.textContent = app.source || currentLocation().liveNote || "";
+      els.placeGrid.innerHTML = places.map((location) => `
+        <button class="place-button ${location.id === app.locationId ? "is-active" : ""}" type="button" data-location-id="${escapeHtml(location.id)}">
+          ${escapeHtml(location.locationName)}
+          <span>${escapeHtml(location.cityName)} / ${escapeHtml(location.liveMode === "transitland-gtfs-rt" ? "Transitland GPS" : location.stateCode === "MD" ? "Live ETA" : location.liveMode === "nyc-siri" ? "Live GPS" : "Ready")}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderDestinationSearch() {
+      const query = els.whereInput.value.trim();
+      const items = rankedSearchItems(query, query ? 12 : 14);
+      if (els.destinationList) {
+        els.destinationList.innerHTML = searchIndex()
+          .slice(0, 220)
+          .map((item) => `<option value="${escapeHtml(item.label)}">${escapeHtml(item.meta)}</option>`)
+          .join("");
+      }
+      if (!els.destinationStrip) return;
+      els.destinationStrip.innerHTML = items.map((item) => `
+        <button class="destination-chip" type="button" data-location-id="${escapeHtml(item.locationId)}" data-route-id="${escapeHtml(item.routeId)}" data-label="${escapeHtml(item.label)}">
+          ${escapeHtml(item.label)} <span>${escapeHtml(item.meta)}</span>
+        </button>
+      `).join("");
+    }
+
+    function renderShell() {
+      const location = currentLocation();
+      const query = els.whereInput.value.trim() || location.destination.name;
+      els.topTitle.textContent = "Transit Intelligence";
+      els.contextLine.textContent = `${location.stateName} / ${location.cityName} / ${location.locationName}`;
+      els.tripTitle.textContent = query;
+      els.lastUpdate.textContent = app.responseTimestamp ? clockText(app.responseTimestamp) : "Loading";
+      els.modeBadge.textContent = app.mode && app.mode.includes("transitland") ? "Transitland GPS" : app.mode && app.mode.includes("live-gps") ? "Live GPS" : app.mode && app.mode.includes("plus") ? "Live + preview" : app.live ? "Live ETA" : "Preview";
+      els.modeBadge.classList.toggle("preview", !app.live);
+      renderRouteOptions();
+    }
+
+    function renderAll(redrawMap) {
+      const vehicles = filteredVehicles();
+      renderShell();
+      renderUrgent(vehicles);
+      renderArrivalCards(vehicles);
+      renderSelected();
+      renderStatus(vehicles);
+      renderRouteManifest(vehicles);
+      renderPlaces();
+      renderDestinationSearch();
+      if (redrawMap) renderMap();
+    }
+
+    function playTone() {
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContext) return;
+      if (!app.audioContext) app.audioContext = new AudioContext();
+      if (app.audioContext.state === "suspended") app.audioContext.resume();
+
+      const osc = app.audioContext.createOscillator();
+      const gain = app.audioContext.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 760;
+      gain.gain.value = 0.001;
+      osc.connect(gain);
+      gain.connect(app.audioContext.destination);
+      osc.start();
+      gain.gain.exponentialRampToValueAtTime(0.13, app.audioContext.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, app.audioContext.currentTime + 0.35);
+      osc.stop(app.audioContext.currentTime + 0.37);
+    }
+
+    function alertSpeechText(vehicle) {
+      const mins = minutesUntil(vehicleTime(vehicle));
+      const minuteText = mins == null ? "soon" : mins <= 0 ? "now" : `in ${mins} minute${mins === 1 ? "" : "s"}`;
+      const from = vehicle.from || "your stop";
+      const stop = vehicle.nextStop && vehicle.nextStop.stopName ? `near ${vehicle.nextStop.stopName}` : "";
+      return `${vehicle.routeLabel} bus ${minuteText} to ${vehicle.destination}. Leave from ${from} ${stop}.`;
+    }
+
+    function speakVehicle(vehicle, force) {
+      if (!force && !app.voiceEnabled) return;
+      const synth = window.speechSynthesis;
+      if (!synth || typeof SpeechSynthesisUtterance === "undefined") {
+        playTone();
+        return;
+      }
+      synth.cancel();
+      const utterance = new SpeechSynthesisUtterance(alertSpeechText(vehicle));
+      utterance.rate = 0.94;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      const voices = synth.getVoices ? synth.getVoices() : [];
+      const preferred = voices.find((voice) => /en-US/i.test(voice.lang)) || voices.find((voice) => /^en/i.test(voice.lang));
+      if (preferred) utterance.voice = preferred;
+      synth.speak(utterance);
+    }
+
+    function playAlertOnce(vehicle) {
+      if (!app.voiceEnabled) return;
+      const key = `${vehicle.id}:${vehicleTime(vehicle)}`;
+      if (app.alertedKeys.has(key)) return;
+      app.alertedKeys.add(key);
+      speakVehicle(vehicle, false);
+    }
+
+    function bindEvents() {
+      els.stateSelect.addEventListener("change", () => {
+        renderCityOptions(els.stateSelect.value);
+        renderLocationOptions(els.stateSelect.value, els.citySelect.value);
+        app.routeId = currentLocation().liveMode === "nyc-siri" ? currentLocation().routes[0].id : "all";
+        app.selectedVehicleId = "";
+        loadVehicles();
+      });
+
+      els.citySelect.addEventListener("change", () => {
+        renderLocationOptions(els.stateSelect.value, els.citySelect.value);
+        app.routeId = currentLocation().liveMode === "nyc-siri" ? currentLocation().routes[0].id : "all";
+        app.selectedVehicleId = "";
+        loadVehicles();
+      });
+
+      els.locationSelect.addEventListener("change", () => {
+        app.locationId = els.locationSelect.value;
+        app.routeId = currentLocation().liveMode === "nyc-siri" ? currentLocation().routes[0].id : "all";
+        app.selectedVehicleId = "";
+        renderRouteOptions();
+        loadVehicles();
+      });
+
+      els.routeSelect.addEventListener("change", () => {
+        app.routeId = els.routeSelect.value;
+        app.selectedVehicleId = "";
+        loadVehicles();
+      });
+
+      els.alertLead.addEventListener("change", () => {
+        app.alertLead = Number(els.alertLead.value) || 5;
+        renderAll(true);
+      });
+
+      els.whereInput.addEventListener("input", () => renderAll(true));
+      els.whereInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        applySearchNavigation();
+      });
+      els.whereInput.addEventListener("change", () => {
+        const exact = rankedSearchItems(els.whereInput.value, 1)[0];
+        if (exact && normalizeQuery(exact.label) === normalizeQuery(els.whereInput.value)) openSearchItem(exact);
+      });
+      els.refreshButton.addEventListener("click", loadVehicles);
+      els.fitButton.addEventListener("click", fitTrackedVehicles);
+      els.followButton.addEventListener("click", () => {
+        app.followSelected = !app.followSelected;
+        els.followButton.textContent = app.followSelected ? "Following" : "Follow bus";
+        els.followButton.setAttribute("aria-pressed", String(app.followSelected));
+        if (app.followSelected) panToSelected();
+      });
+      els.locateButton.addEventListener("click", () => {
+        if (!navigator.geolocation || !app.map) return;
+        navigator.geolocation.getCurrentPosition((position) => {
+          const latLng = [position.coords.latitude, position.coords.longitude];
+          if (app.userMarker) {
+            app.userMarker.setLatLng(latLng);
+          } else {
+            app.userMarker = L.circleMarker(latLng, {
+              radius: 8,
+              color: "#1767c2",
+              weight: 3,
+              fillColor: "#ffffff",
+              fillOpacity: 0.9
+            }).bindPopup("Your location").addTo(app.map);
+          }
+          app.map.setView(latLng, Math.max(app.map.getZoom(), 15), { animate: true });
+        });
+      });
+
+      els.soundButton.addEventListener("click", () => {
+        app.voiceEnabled = !app.voiceEnabled;
+        els.soundButton.textContent = app.voiceEnabled ? "Voice on" : "Voice off";
+        els.soundButton.setAttribute("aria-pressed", String(app.voiceEnabled));
+        const urgent = filteredVehicles().find((vehicle) => {
+          const mins = minutesUntil(vehicleTime(vehicle));
+          return mins != null && mins <= app.alertLead;
+        });
+        if (app.voiceEnabled && urgent) speakVehicle(urgent, true);
+        if (app.voiceEnabled && !urgent) playTone();
+        renderSelected();
+      });
+
+      els.arrivalList.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-vehicle-id]");
+        if (!card) return;
+        selectVehicle(card.dataset.vehicleId, { scroll: true, zoom: true, openPopup: true, follow: true });
+      });
+
+      els.routeManifest.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-route-id]");
+        if (!button) return;
+        app.routeId = button.dataset.routeId;
+        app.selectedVehicleId = "";
+        els.routeSelect.value = app.routeId;
+        loadVehicles();
+      });
+
+      els.urgentStrip.addEventListener("click", (event) => {
+        const speakButton = event.target.closest("[data-speak-urgent]");
+        if (speakButton) {
+          const vehicle = app.vehicles.find((item) => item.id === speakButton.dataset.speakUrgent);
+          if (vehicle) speakVehicle(vehicle, true);
+          return;
+        }
+        const button = event.target.closest("[data-track-urgent]");
+        if (!button) return;
+        selectVehicle(button.dataset.trackUrgent, { scroll: true, zoom: true, openPopup: true, follow: true });
+      });
+
+      els.placeGrid.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-location-id]");
+        if (!button) return;
+        app.locationId = button.dataset.locationId;
+        const location = currentLocation();
+        els.stateSelect.value = location.stateCode;
+        renderCityOptions(location.stateCode, location.cityName);
+        renderLocationOptions(location.stateCode, location.cityName, location.id);
+        app.routeId = location.liveMode === "nyc-siri" ? location.routes[0].id : "all";
+        app.selectedVehicleId = "";
+        loadVehicles();
+      });
+
+      els.destinationStrip.addEventListener("click", (event) => {
+        const chip = event.target.closest("[data-location-id]");
+        if (!chip) return;
+        els.whereInput.value = chip.dataset.label || els.whereInput.value;
+        openSearchItem({
+          locationId: chip.dataset.locationId,
+          routeId: chip.dataset.routeId || "all"
+        });
+      });
+
+      window.addEventListener("resize", () => {
+        if (app.map) window.setTimeout(() => app.map.invalidateSize(), 150);
+      });
+    }
+
+    async function boot() {
+      await loadCatalog();
+      setupSelectors();
+      initMap();
+      bindEvents();
+      await loadVehicles();
+      window.setInterval(loadVehicles, app.refreshMs);
+      app.motionTimer = window.setInterval(animateBusMarkers, 1000);
+      app.refreshTimer = window.setInterval(updateRefreshCountdown, 1000);
+      window.setInterval(() => renderAll(false), 15000);
+    }
+
+    document.addEventListener("DOMContentLoaded", boot);
+  </script>
+</body>
+</html>
