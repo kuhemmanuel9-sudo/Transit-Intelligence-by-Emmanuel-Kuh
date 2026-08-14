@@ -25,11 +25,11 @@ Transit Intelligence is a premium, mobile-first live bus tracking interface for 
 
 
 
-Then open the URL printed by the server, usually:
 
-```text
+You can highlight the link below and open it live 
+
 http://127.0.0.1:4173
-```
+
 
 ## Environment Variables
 
