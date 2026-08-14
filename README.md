@@ -26,7 +26,7 @@ Transit Intelligence is a premium, mobile-first live bus tracking interface for 
 
 
 
-You can highlight the link below and open it live 
+You can open it live below
 
 http://127.0.0.1:4173
 
